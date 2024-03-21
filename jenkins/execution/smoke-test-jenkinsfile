@@ -1,0 +1,325 @@
+pipeline {
+
+    agent none
+
+    options {
+        ansiColor('xterm')
+    }
+
+    stages {
+
+        stage('Activate Attorney in Production') {
+            agent {label "aut3"}
+
+            steps {
+                checkoutBranch()
+
+                script {
+                    currentBuild.displayName = "#${BUILD_NUMBER}-${SERVER}-${Branch}"
+
+                    if ("${SERVER}" == 'www') {
+                        sh ''' echo "Running TCM-6485 Activate attorney script for production environment" '''
+
+                        catchError(message: 'AUT3 failed, we continue on', buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                            withCredentials([usernamePassword(credentialsId: 'a7bd4bb9-0aae-482b-a677-234702b86313', usernameVariable: 'J_USER', passwordVariable: 'J_USER_PASSWD')]) {
+                                sh '''
+                                    UID=$(id -u jenkins)
+                                    GID=$(id -g jenkins)
+                                    docker run --rm \
+                                        -v $PWD:/aut \
+                                        -v /dev/shm:/dev/shm \
+                                        -w /aut \
+                                        --network=host \
+                                        --name cypress-chrome-${BUILD_NUMBER} \
+                                        -t $DockerRegistry:5000/cypress-chrome:$Chrome \
+                                        bash -c "rm -fr node_modules/ pnpm-lock.yaml cypress/out/TCM-*/ cypress/out/activateDeactivateAttorney/TCM-*; usermod -u $UID jenkins; groupmod -g $GID jenkins; su -c \\"pnpm install --loglevel silent; npx cypress run -b chrome --config baseUrl=https://$Server.legalmatch.com --env portal=${QAPortalServerPage}/stream?key=,buildNumber=build-${BUILD_NUMBER},machine=aut3,selectedScript=,environment=$Server,jiraUpdate=true,jiraEmail=$J_USER,jiraToken=$J_USER_PASSWD \
+                                        -s \\"cypress/integration/tests/ram/activateDeactivateAttorney/TCM-6485.js\\"\\" jenkins"
+                                    containerId=$(docker ps -a -q --filter "name=cypress-chrome-$1" --format="{{.ID}}")
+                                    if [ ${#containerId} -gt 0 ]
+                                    then
+                                        docker rm $(docker stop $containerId)
+                                        echo "Removed docker container ID $containerId"
+                                    else
+                                        echo "No docker container to remove"
+                                    fi
+
+                                '''
+                            }
+
+                            uploadArtifacts()
+                        }
+
+                    } else {
+                        sh ''' echo "Skipping Activate Attorney script for non-production environment" '''
+                    }
+                }
+            }
+        }
+
+        stage('Parallel Stage') {
+
+            parallel {
+                
+                stage("Execute Automation 1") {
+                    agent {label "aut1"}
+
+                    stages {
+                        stage('AUT1') {
+                            steps {
+                                checkoutBranch()
+
+                                script {
+                                    catchError(message: 'AUT1 failed, we continue on', buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                                        withCredentials([usernamePassword(credentialsId: 'a7bd4bb9-0aae-482b-a677-234702b86313', usernameVariable: 'J_USER', passwordVariable: 'J_USER_PASSWD')]) {
+                                            sh '''
+                                                UID=$(id -u jenkins)
+                                                GID=$(id -g jenkins)
+                                                docker run --rm \
+                                                    -v $PWD:/aut \
+                                                    -v /dev/shm:/dev/shm \
+                                                    -w /aut \
+                                                    --network=host \
+                                                    --name cypress-chrome-${BUILD_NUMBER} \
+                                                    -t $DockerRegistry:5000/cypress-chrome:$Chrome \
+                                                    bash -c "rm -fr node_modules/ pnpm-lock.yaml cypress/out/TCM-*/ cypress/out/smokeTest/TCM-*; usermod -u $UID jenkins; groupmod -g $GID jenkins; su -c \\"pnpm install --loglevel silent; npx cypress run -b chrome --config baseUrl=https://$Server.legalmatch.com --env portal=${QAPortalServerPage}/stream?key=,buildNumber=build-${BUILD_NUMBER},machine=aut1,selectedScript=,environment=$Server,onPremServer=$OnPremServer,jiraUpdate=true,jiraEmail=$J_USER,jiraToken=$J_USER_PASSWD \
+                                                    -s \\"cypress/integration/tests/smokeTest/TCM-154.js,cypress/integration/tests/smokeTest/TCM-5707.js,cypress/integration/tests/smokeTest/TCM-5705.js,cypress/integration/tests/smokeTest/TCM-5790.js,cypress/integration/tests/smokeTest/TCM-5792.js,cypress/integration/tests/smokeTest/TCM-5700.js,cypress/integration/tests/smokeTest/TCM-5775.js,cypress/integration/tests/smokeTest/TCM-5776.js,cypress/integration/tests/smokeTest/TCM-5778.js,cypress/integration/tests/smokeTest/TCM-5781.js,cypress/integration/tests/smokeTest/TCM-5830.js\\"\\" jenkins"
+                                                containerId=$(docker ps -a -q --filter "name=cypress-chrome-$1" --format="{{.ID}}")
+                                                if [ ${#containerId} -gt 0 ]
+                                                then
+                                                    docker rm $(docker stop $containerId)
+                                                    echo "Removed docker container ID $containerId"
+                                                else
+                                                    echo "No docker container to remove"
+                                                fi
+                                            
+                                            '''
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        stage("AUT1 Upload") {
+                            steps{
+                                uploadArtifacts()
+                            }
+                        }
+                    }
+                }
+
+
+                stage("Execute Automation 2") {
+                    agent {label "aut2"}
+
+                    stages{
+                        stage('AUT2') {
+                            steps {
+                                checkoutBranch()
+
+                                script {
+                                    catchError(message: 'AUT2 failed, we continue on', buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                                        withCredentials([usernamePassword(credentialsId: 'a7bd4bb9-0aae-482b-a677-234702b86313', usernameVariable: 'J_USER', passwordVariable: 'J_USER_PASSWD')]) {
+                                            sh '''
+                                                UID=$(id -u jenkins)
+                                                GID=$(id -g jenkins)
+                                                docker run --rm \
+                                                    -v $PWD:/aut \
+                                                    -v /dev/shm:/dev/shm \
+                                                    -w /aut \
+                                                    --network=host \
+                                                    --name cypress-chrome-${BUILD_NUMBER} \
+                                                    -t $DockerRegistry:5000/cypress-chrome:$Chrome \
+                                                    bash -c "rm -fr node_modules/ pnpm-lock.yaml cypress/out/TCM-*/ cypress/out/smokeTest/TCM-*; usermod -u $UID jenkins; groupmod -g $GID jenkins; su -c \\"pnpm install --loglevel silent; npx cypress run -b chrome --config baseUrl=https://$Server.legalmatch.com --env portal=${QAPortalServerPage}/stream?key=,buildNumber=build-${BUILD_NUMBER},machine=aut2,selectedScript=,environment=$Server,onPremServer=$OnPremServer,jiraUpdate=true,jiraEmail=$J_USER,jiraToken=$J_USER_PASSWD \
+                                                    -s \\"cypress/integration/tests/smokeTest/TCM-5162.js,cypress/integration/tests/smokeTest/TCM-5203.js,cypress/integration/tests/smokeTest/TCM-5204.js,cypress/integration/tests/smokeTest/TCM-5205.js,cypress/integration/tests/smokeTest/TCM-5208.js,cypress/integration/tests/smokeTest/TCM-5255.js,cypress/integration/tests/smokeTest/TCM-5256.js,cypress/integration/tests/smokeTest/TCM-5864.js,cypress/integration/tests/rebrandedPages/TCM-6364.js,cypress/integration/tests/rebrandedPages/TCM-6129.js\\"\\" jenkins"
+                                                containerId=$(docker ps -a -q --filter "name=cypress-chrome-$1" --format="{{.ID}}")
+                                                if [ ${#containerId} -gt 0 ]
+                                                then
+                                                    docker rm $(docker stop $containerId)
+                                                    echo "Removed docker container ID $containerId"
+                                                else
+                                                    echo "No docker container to remove"
+                                                fi
+                                            
+                                            '''
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        stage("AUT2 Upload") {
+                            steps{
+                                uploadArtifacts()
+                            }
+                        }
+                    }
+                }
+
+                stage("Execute Automation 3") {
+                    agent {label "aut3"}
+
+                    stages{
+                        stage('AUT3') {
+                            steps{
+                                checkoutBranch()
+
+                                script {
+                                    catchError(message: 'AUT3 failed, we continue on', buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                                        withCredentials([usernamePassword(credentialsId: 'a7bd4bb9-0aae-482b-a677-234702b86313', usernameVariable: 'J_USER', passwordVariable: 'J_USER_PASSWD')]) {
+                                            sh '''
+                                                UID=$(id -u jenkins)
+                                                GID=$(id -g jenkins)
+                                                docker run --rm \
+                                                    -v $PWD:/aut \
+                                                    -v /dev/shm:/dev/shm \
+                                                    -w /aut \
+                                                    --network=host \
+                                                    --name cypress-chrome-${BUILD_NUMBER} \
+                                                    -t $DockerRegistry:5000/cypress-chrome:$Chrome \
+                                                    bash -c "rm -fr node_modules/ pnpm-lock.yaml cypress/out/TCM-*/ cypress/out/smokeTest/TCM-*; usermod -u $UID jenkins; groupmod -g $GID jenkins; su -c \\"pnpm install --loglevel silent; npx cypress run -b chrome --config baseUrl=https://$Server.legalmatch.com --env portal=${QAPortalServerPage}/stream?key=,buildNumber=build-${BUILD_NUMBER},machine=aut3,selectedScript=,environment=$Server,onPremServer=$OnPremServer,jiraUpdate=true,jiraEmail=$J_USER,jiraToken=$J_USER_PASSWD \
+                                                    -s \\"cypress/integration/tests/smokeTest/TCM-5062.js,cypress/integration/tests/smokeTest/TCM-5756.js,cypress/integration/tests/smokeTest/TCM-5834.js,cypress/integration/tests/smokeTest/TCM-5839.js,cypress/integration/tests/rebrandedPages/TCM-6106.js,cypress/integration/tests/smokeTest/TCM-6785.js,cypress/integration/tests/ttalMembership/TCM-6766.js,cypress/integration/tests/smokeTest/TCM-6974.js\\"\\" jenkins"
+                                                containerId=$(docker ps -a -q --filter "name=cypress-chrome-$1" --format="{{.ID}}")
+                                                if [ ${#containerId} -gt 0 ]
+                                                then
+                                                    docker rm $(docker stop $containerId)
+                                                    echo "Removed docker container ID $containerId"
+                                                else
+                                                    echo "No docker container to remove"
+                                                fi
+                                            
+                                            '''
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        stage("AUT3 Upload") {
+                            steps{
+                                uploadArtifacts()
+                            }
+                        }
+                    }
+                }
+                stage("Execute Automation 4") {
+                    agent {label "aut4"}
+                    
+                    stages{
+                        stage('AUT4') {
+                            steps{
+                                checkoutBranch()
+
+                                script {
+                                    catchError(message: 'AUT4 failed, we continue on', buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                                        withCredentials([usernamePassword(credentialsId: 'a7bd4bb9-0aae-482b-a677-234702b86313', usernameVariable: 'J_USER', passwordVariable: 'J_USER_PASSWD')]) {
+                                            sh '''
+                                                UID=$(id -u jenkins)
+                                                GID=$(id -g jenkins)
+                                                docker run --rm \
+                                                    -v $PWD:/aut \
+                                                    -v /dev/shm:/dev/shm \
+                                                    -w /aut \
+                                                    --network=host \
+                                                    --name cypress-chrome-${BUILD_NUMBER} \
+                                                    -t $DockerRegistry:5000/cypress-chrome:$Chrome \
+                                                    bash -c "rm -fr node_modules/ pnpm-lock.yaml cypress/out/TCM-*/ cypress/out/smokeTest/TCM-*; usermod -u $UID jenkins; groupmod -g $GID jenkins; su -c \\"pnpm install --loglevel silent; npx cypress run -b chrome --config baseUrl=https://$Server.legalmatch.com --env portal=${QAPortalServerPage}/stream?key=,buildNumber=build-${BUILD_NUMBER},machine=aut4,selectedScript=,environment=$Server,onPremServer=$OnPremServer,jiraUpdate=true,jiraEmail=$J_USER,jiraToken=$J_USER_PASSWD \
+                                                    -s \\"cypress/integration/tests/smokeTest/TCM-5757.js,cypress/integration/tests/smokeTest/TCM-671.js,cypress/integration/tests/smokeTest/TCM-674.js,cypress/integration/tests/smokeTest/TCM-675.js,cypress/integration/tests/smokeTest/TCM-5651.js,cypress/integration/tests/smokeTest/TCM-5656.js,cypress/integration/tests/smokeTest/TCM-5660.js,cypress/integration/tests/smokeTest/TCM-5668.js\\"\\" jenkins"
+                                                containerId=$(docker ps -a -q --filter "name=cypress-chrome-$1" --format="{{.ID}}")
+                                                if [ ${#containerId} -gt 0 ]
+                                                then
+                                                    docker rm $(docker stop $containerId)
+                                                    echo "Removed docker container ID $containerId"
+                                                else
+                                                    echo "No docker container to remove"
+                                                fi
+                                            
+                                            '''
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        stage("AUT4 Upload") {
+                            steps{
+                                uploadArtifacts()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deactivate Attorney in Production') {
+            agent {label "aut3"}
+
+            steps {
+                checkoutBranch()
+
+                script {
+                    if ("${SERVER}" == 'www') {
+                        sh ''' echo "Running TCM-6490 Deactivate attorney script for production environment" '''
+
+                        catchError(message: 'AUT3 failed, we continue on', buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                            withCredentials([usernamePassword(credentialsId: 'a7bd4bb9-0aae-482b-a677-234702b86313', usernameVariable: 'J_USER', passwordVariable: 'J_USER_PASSWD')]) {
+                                sh '''
+                                    UID=$(id -u jenkins)
+                                    GID=$(id -g jenkins)
+                                    docker run --rm \
+                                        -v $PWD:/aut \
+                                        -v /dev/shm:/dev/shm \
+                                        -w /aut \
+                                        --network=host \
+                                        --name cypress-chrome-${BUILD_NUMBER} \
+                                        -t $DockerRegistry:5000/cypress-chrome:$Chrome \
+                                        bash -c "rm -fr node_modules/ pnpm-lock.yaml cypress/out/TCM-*/ cypress/out/activateDeactivateAttorney/TCM-*; usermod -u $UID jenkins; groupmod -g $GID jenkins; su -c \\"pnpm install --loglevel silent; npx cypress run -b chrome --config baseUrl=https://$Server.legalmatch.com --env portal=${QAPortalServerPage}/stream?key=,buildNumber=build-${BUILD_NUMBER},machine=aut3,selectedScript=,environment=$Server,jiraUpdate=true,jiraEmail=$J_USER,jiraToken=$J_USER_PASSWD \
+                                        -s \\"cypress/integration/tests/ram/activateDeactivateAttorney/TCM-6490.js\\"\\" jenkins"
+                                    containerId=$(docker ps -a -q --filter "name=cypress-chrome-$1" --format="{{.ID}}")
+                                    if [ ${#containerId} -gt 0 ]
+                                    then
+                                        docker rm $(docker stop $containerId)
+                                        echo "Removed docker container ID $containerId"
+                                    else
+                                        echo "No docker container to remove"
+                                    fi
+
+                                '''
+                            }
+
+                            uploadArtifacts()
+                        }
+
+                    } else {
+                        sh ''' echo "Skipping Deactivate Attorney script for non-production environment" '''
+                    }
+
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "All builds completed OK"
+        }
+
+        failure {
+            echo "A job failed"
+        }
+    }
+}
+
+def checkoutBranch() {
+    git branch: '$Branch',
+        credentialsId: 'c9589bda-7190-4f83-9eaf-5e16bab8b533',
+        url: 'https://bitbucket.org/legalmatch/lm-test-automation.git'
+}
+
+def uploadArtifacts() {
+    ftpPublisher alwaysPublishFromMaster: false,
+        continueOnError: false,
+        failOnError: false,
+        masterNodeName: '',
+        paramPublish: null,
+        publishers: [[configName: 'aut5', transfers: [[asciiMode: false, cleanRemote: false, excludes: '', flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: 'cypress/out/tests/', sourceFiles: '**/cypress/out/tests/**/build-${BUILD_NUMBER}*']], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: true]]
+}

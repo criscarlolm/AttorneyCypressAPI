@@ -1,0 +1,13 @@
+version: '3'
+services:
+    lma:
+        build: .
+        network_mode: 'host'
+        privileged: true
+        command: bash -c "${JENKINS}"
+        image: 10.0.6.215:5000/cypress-chrome:${CHROME}
+        tty: true
+        volumes:
+            - ${WORKSPACE}:/aut
+            - /dev/shm:/dev/shm
+        working_dir: /aut

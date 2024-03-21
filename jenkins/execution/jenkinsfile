@@ -1,0 +1,60 @@
+pipeline {
+    agent {label "${node}"}
+    
+    options {
+      ansiColor('xterm')
+    }
+  
+    stages {
+
+        stage("Checkout") {
+            steps{
+                git branch: '$Branch',
+                    credentialsId: 'c9589bda-7190-4f83-9eaf-5e16bab8b533',
+                    url: 'https://bitbucket.org/legalmatch/lm-test-automation.git'
+            }
+        }
+
+        stage("Execute Automation") {
+            steps{
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'a7bd4bb9-0aae-482b-a677-234702b86313', usernameVariable: 'J_USER', passwordVariable: 'J_USER_PASSWD')]) {
+                        sh '''
+                            UID=$(id -u jenkins)
+                            GID=$(id -g jenkins)
+                            docker run --rm \
+                            	-v $PWD:/aut \
+                                -v /dev/shm:/dev/shm \
+                                -w /aut \
+                                --network=host \
+                                -t $DockerRegistry:5000/cypress-chrome:$Chrome \
+                                bash -c "rm -fr node_modules/ pnpm-lock.yaml; usermod -u $UID jenkins; groupmod -g $GID jenkins; su -c \\"pnpm install --loglevel silent; npx cypress run -b chrome --config baseUrl=https://$Server.legalmatch.com --env portal=${QAPortalServerPage}/stream?key=,buildNumber=build-${BUILD_NUMBER},machine=$node,selectedScript=$Scripts,environment=$Server,jiraUpdate=true,jiraEmail=$J_USER,jiraToken=$J_USER_PASSWD,subscriptionLocation=$Location,subscriptionLocationModify=$ModifyLocation -s \\"cypress/integration/tests/$Scripts.js\\"\\" jenkins"
+                               
+                        '''
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+
+        always {
+            ftpPublisher alwaysPublishFromMaster: false,
+                            continueOnError: false,
+                            failOnError: false,
+                            masterNodeName: '',
+                            paramPublish: null,
+                            publishers: [[configName: 'aut5', transfers: [[asciiMode: false, cleanRemote: false, excludes: '', flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '$Scripts/', remoteDirectorySDF: false, removePrefix: 'cypress/out', sourceFiles: '**/cypress/out/build*']], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false]]
+        }
+
+        success {
+            echo "All builds completed OK"
+        }
+
+        failure {
+            echo "A job failed"
+        }
+    }
+}
+

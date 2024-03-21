@@ -1,0 +1,9 @@
+import './legalCaseController.commands';
+import './responseController.commands';
+import './attorneyController.commands';
+import './notificationController.commands';
+import './attorneySubscriptionsController.commands';
+import './attorneyTestFeaturesController.commands';
+import './guestTotalsController.commands';
+import './tokenEndPoint.commands';
+import './casePostingModule.commands';
